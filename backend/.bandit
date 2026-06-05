@@ -1,0 +1,5 @@
+[bandit]
+# Exclude test files from SAST (they use plain passwords for fixtures)
+exclude_dirs = ["tests"]
+# Skip low severity assert checks
+skips = ["B101"]

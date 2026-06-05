@@ -1,0 +1,239 @@
+openapi: "3.0.3"
+info:
+  title: Payment Microservice API
+  description: Escrow-based payment service with blockchain transaction log
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8001
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /escrow/lock:
+    post:
+      summary: Lock funds in escrow
+      description: Deducts amount from customer balance and creates a locked escrow account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockRequest"
+      responses:
+        "201":
+          description: Escrow account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscrowAccount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          description: Insufficient funds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /escrow/release:
+    post:
+      summary: Release funds to executor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscrowIDRequest"
+      responses:
+        "200":
+          description: Funds released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscrowAccount"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Escrow is not in locked status
+
+  /escrow/refund:
+    post:
+      summary: Refund funds to customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscrowIDRequest"
+      responses:
+        "200":
+          description: Funds refunded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscrowAccount"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Escrow is not in locked status
+
+  /escrow/{id}:
+    get:
+      summary: Get escrow account details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Escrow account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscrowAccount"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /chain:
+    get:
+      summary: Get full blockchain transaction log
+      responses:
+        "200":
+          description: List of all transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /chain/verify:
+    get:
+      summary: Verify blockchain integrity
+      description: Re-computes all SHA-256 hashes and checks chain linkage
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: true
+                  - type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: false
+                      broken:
+                        type: array
+                        items:
+                          type: string
+
+components:
+  schemas:
+    LockRequest:
+      type: object
+      required: [order_id, amount, customer_id, executor_id]
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+        customer_id:
+          type: string
+          format: uuid
+        executor_id:
+          type: string
+          format: uuid
+
+    EscrowIDRequest:
+      type: object
+      required: [escrow_id]
+      properties:
+        escrow_id:
+          type: string
+          format: uuid
+
+    EscrowAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        order_id:
+          type: string
+        customer_id:
+          type: string
+        executor_id:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [locked, released, refunded]
+        created_at:
+          type: string
+          format: date-time
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        from:
+          type: string
+        to:
+          type: string
+        amount:
+          type: number
+        prev_hash:
+          type: string
+        hash:
+          type: string
+        description:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
