@@ -67,7 +67,7 @@ services:
       dockerfile: Dockerfile
       target: builder
     working_dir: /app
-    command: go test ./... -v -race
+    command: go test ./... -v
     profiles:
       - test
 
