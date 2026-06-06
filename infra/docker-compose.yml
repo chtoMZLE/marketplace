@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -51,6 +49,7 @@ services:
     build:
       context: ../payment
       dockerfile: Dockerfile
+      target: runner
     ports:
       - "8001:8001"
     env_file:
@@ -60,6 +59,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Builder-stage container used only for `go test` — has Go toolchain
+  payment-test:
+    build:
+      context: ../payment
+      dockerfile: Dockerfile
+      target: builder
+    working_dir: /app
+    command: go test ./... -v -race
+    profiles:
+      - test
 
 volumes:
   pgdata:

@@ -2,11 +2,10 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-# Copy all sources first so go mod tidy can resolve imports
 COPY . .
 RUN go mod tidy && go build -o server ./cmd/server
 
-FROM alpine:3.20
+FROM alpine:3.20 AS runner
 
 WORKDIR /app
 
