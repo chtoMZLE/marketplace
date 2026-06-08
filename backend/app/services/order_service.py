@@ -1,7 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order import Order, OrderStatus
+from app.models.service import Service
 
 
 async def create_order(db: AsyncSession, service_id: str, customer_id: str, escrow_id: str) -> Order:
@@ -19,7 +20,10 @@ async def get_order(db: AsyncSession, order_id: str) -> Order | None:
 
 async def get_orders_for_user(db: AsyncSession, user_id: str) -> list[Order]:
     result = await db.execute(
-        select(Order).where((Order.customer_id == user_id))
+        select(Order)
+        .join(Service, Order.service_id == Service.id)
+        .where(or_(Order.customer_id == user_id, Service.executor_id == user_id))
+        .order_by(Order.created_at.desc())
     )
     return list(result.scalars().all())
 
