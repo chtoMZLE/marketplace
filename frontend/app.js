@@ -42,7 +42,13 @@ function esc(str) {
 }
 
 function statusBadge(s) {
-  const labels = { pending: 'Ожидание', active: 'Активен', completed: 'Завершён', disputed: 'Спор', cancelled: 'Отменён' };
+  const labels = {
+    pending:   'Ожидает исполнителя',
+    active:    'В работе',
+    completed: 'Завершён',
+    disputed:  'Спор',
+    cancelled: 'Отменён',
+  };
   return `<span class="status status-${s}">${labels[s] ?? s}</span>`;
 }
 
@@ -198,13 +204,12 @@ function renderOrders(orders) {
 
     const actions = [];
     if (o.status === 'pending') {
-      if (role === 'customer')  actions.push(`<button class="btn btn-sm btn-danger"  data-id="${o.id}" data-action="cancel">Отменить</button>`);
-      if (role === 'executor')  actions.push(`<button class="btn btn-sm btn-success" data-id="${o.id}" data-action="accept">Принять</button>`);
-      actions.push(`<button class="btn btn-sm btn-amber" data-id="${o.id}" data-action="dispute">Спор</button>`);
+      if (role === 'customer') actions.push(`<button class="btn btn-sm btn-danger"  data-id="${o.id}" data-action="cancel">Отменить</button>`);
+      if (role === 'executor') actions.push(`<button class="btn btn-sm btn-success" data-id="${o.id}" data-action="accept">Принять</button>`);
     }
     if (o.status === 'active') {
-      if (role === 'customer')  actions.push(`<button class="btn btn-sm btn-primary" data-id="${o.id}" data-action="complete">Подтвердить</button>`);
-      actions.push(`<button class="btn btn-sm btn-amber" data-id="${o.id}" data-action="dispute">Спор</button>`);
+      if (role === 'customer') actions.push(`<button class="btn btn-sm btn-primary" data-id="${o.id}" data-action="complete">Подтвердить выполнение</button>`);
+      actions.push(`<button class="btn btn-sm btn-amber" data-id="${o.id}" data-action="dispute">Открыть спор</button>`);
     }
 
     return `
