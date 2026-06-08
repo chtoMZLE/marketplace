@@ -14,7 +14,14 @@ async function request(base, path, options = {}) {
   const res = await fetch(base + path, { ...options, headers });
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw { status: res.status, detail: data.detail ?? JSON.stringify(data) };
+  if (!res.ok) {
+    // Pydantic validation errors return detail as an array of {loc, msg, type}
+    const raw = data.detail;
+    const detail = Array.isArray(raw)
+      ? raw.map((e) => (e.msg ?? JSON.stringify(e)).replace(/^Value error,\s*/i, '')).join('; ')
+      : raw ?? JSON.stringify(data);
+    throw { status: res.status, detail };
+  }
   return data;
 }
 
