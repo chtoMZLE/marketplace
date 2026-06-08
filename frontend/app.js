@@ -3,6 +3,7 @@ import * as api from './api.js';
 // ── State ─────────────────────────────────────────────────────────
 let currentUser = null;
 let servicesCache = [];
+let ordersCache = [];
 
 // ── DOM helpers ───────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -33,6 +34,57 @@ function showToast(msg, type = 'info') {
   toast.style.opacity = '1';
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+// ── Modal ─────────────────────────────────────────────────────────
+function showModal(title, bodyHtml) {
+  $('modal-title').textContent = title;
+  $('modal-body').innerHTML = bodyHtml;
+  $('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  $('modal-overlay').classList.add('hidden');
+}
+
+function detailRow(label, value) {
+  return `<div class="detail-row"><div class="detail-label">${label}</div><div class="detail-value">${value}</div></div>`;
+}
+
+function showOrderDetail(order) {
+  const svc = servicesCache.find((s) => s.id === order.service_id);
+  const isCustomer = order.customer_id === currentUser.id;
+
+  const rows = [
+    detailRow('ID заказа',   `<span class="hash">${order.id}</span>`),
+    detailRow('Статус',      statusBadge(order.status)),
+    detailRow('Ваша роль',   isCustomer ? 'Заказчик' : 'Исполнитель'),
+    svc ? detailRow('Услуга',    esc(svc.title))                           : '',
+    svc ? detailRow('Описание',  esc(svc.description))                     : '',
+    svc ? detailRow('Цена',      `₽ ${parseFloat(svc.price).toFixed(2)}`) : '',
+    detailRow('ID заказчика', `<span class="hash">${order.customer_id}</span>`),
+    detailRow('ID эскроу',   order.escrow_tx_id
+      ? `<span class="hash">${order.escrow_tx_id}</span>` : '—'),
+  ].join('');
+
+  showModal('Детали заказа', rows);
+}
+
+function showTxDetail(tx) {
+  const opLabels = { lock: 'Блокировка', release: 'Выплата', refund: 'Возврат', dispute: 'Спор' };
+
+  const rows = [
+    detailRow('ID',           `<span class="hash">${tx.id}</span>`),
+    detailRow('Операция',     opLabels[tx.description] ?? esc(tx.description ?? '—')),
+    detailRow('Время',        new Date(tx.timestamp).toLocaleString('ru')),
+    detailRow('От',           `<span class="hash">${tx.from}</span>`),
+    detailRow('Кому',         `<span class="hash">${tx.to}</span>`),
+    detailRow('Сумма',        `₽ ${tx.amount.toFixed(2)}`),
+    detailRow('Пред. хэш',   `<span class="hash">${tx.prev_hash}</span>`),
+    detailRow('Хэш',         `<span class="hash">${tx.hash}</span>`),
+  ].join('');
+
+  showModal('Транзакция блокчейна', rows);
 }
 
 function esc(str) {
@@ -184,6 +236,7 @@ async function handleCreateOrder(serviceId, price) {
 async function loadOrders() {
   try {
     const orders = await api.listOrders();
+    ordersCache = orders;
     renderOrders(orders);
   } catch (e) {
     setHtml('orders-list', '<div class="empty">Ошибка загрузки заказов</div>');
@@ -213,7 +266,7 @@ function renderOrders(orders) {
     }
 
     return `
-      <div class="item-card">
+      <div class="item-card clickable" data-order-id="${o.id}">
         <div class="item-info">
           <div class="item-title">${esc(svcTitle)}</div>
           <div class="item-sub">ID: ${o.id.slice(0, 8)}… · Escrow: ${escrowShort}</div>
@@ -248,22 +301,35 @@ function renderOrders(orders) {
       }
     });
   });
+
+  // Click on card → detail modal (ignore clicks on buttons)
+  document.querySelectorAll('[data-order-id]').forEach((card) => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const order = ordersCache.find((o) => o.id === card.dataset.orderId);
+      if (order) showOrderDetail(order);
+    });
+  });
 }
 
 // ── Blockchain ───────────────────────────────────────────────────
+let chainCache = [];
+
 async function loadChain() {
   try {
     const chain = await api.getChain();
+    chainCache = chain;
     $('verify-result').innerHTML = '';
     if (!chain.length) {
       setHtml('chain-content', '<div class="empty">Цепочка пуста — создайте заказ, чтобы появились записи</div>');
       return;
     }
+    const opLabels = { lock: 'Блокировка', release: 'Выплата', refund: 'Возврат', dispute: 'Спор' };
     const rows = chain.map((tx, i) => `
-      <tr>
+      <tr class="clickable" data-tx-id="${esc(tx.id)}" style="transition:background .15s">
         <td>${i + 1}</td>
         <td>${new Date(tx.timestamp).toLocaleString('ru')}</td>
-        <td>${esc(tx.description ?? '—')}</td>
+        <td>${opLabels[tx.description] ?? esc(tx.description ?? '—')}</td>
         <td class="hash" title="${esc(tx.from)}">${tx.from.slice(0, 12)}…</td>
         <td class="hash" title="${esc(tx.to)}">${tx.to.slice(0, 12)}…</td>
         <td>₽ ${tx.amount.toFixed(2)}</td>
@@ -280,9 +346,18 @@ async function loadChain() {
         </table>
       </div>
       <div style="margin-top:10px;font-size:.75rem;color:var(--muted)">
-        Всего записей: ${chain.length} · Каждая запись включает prev_hash предыдущей транзакции
+        Всего записей: ${chain.length} · Нажмите на строку для просмотра полных данных
       </div>
     `);
+
+    document.querySelectorAll('[data-tx-id]').forEach((row) => {
+      row.addEventListener('mouseenter', () => { row.style.background = 'var(--bg)'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
+      row.addEventListener('click', () => {
+        const tx = chainCache.find((t) => t.id === row.dataset.txId);
+        if (tx) showTxDetail(tx);
+      });
+    });
   } catch (e) {
     setHtml('chain-content', `<div class="empty">Платёжный сервис недоступен (${e.detail ?? ''})</div>`);
   }
@@ -347,6 +422,15 @@ function init() {
   $('tab-services').addEventListener('click', () => switchTab('tab-services'));
   $('tab-orders').addEventListener('click', () => switchTab('tab-orders'));
   $('tab-chain').addEventListener('click', () => switchTab('tab-chain'));
+
+  // Modal
+  $('modal-close').addEventListener('click', closeModal);
+  $('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === $('modal-overlay')) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
 
   // Chain buttons
   $('btn-refresh-chain').addEventListener('click', loadChain);
