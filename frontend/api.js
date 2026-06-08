@@ -57,5 +57,6 @@ export const orderAction = (id, action) =>
   back(`/orders/${id}/${action}`, { method: 'POST' });
 
 // ── Blockchain ────────────────────────────────────────────────────
-export const getChain  = () => pay('/chain');
+export const getChain    = () => pay('/chain');
 export const verifyChain = () => pay('/chain/verify');
+export const tamperChain = () => pay('/chain/tamper', { method: 'POST' });

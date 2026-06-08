@@ -72,6 +72,18 @@ func (c *Chain) All() []*Transaction {
 	return out
 }
 
+// Tamper silently modifies a transaction's amount without recalculating hashes.
+// Used only for demo purposes to show that Verify detects tampering.
+func (c *Chain) Tamper(index int) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if index < 0 || index >= len(c.transactions) {
+		return "", false
+	}
+	c.transactions[index].Amount += 9999
+	return c.transactions[index].ID, true
+}
+
 // Verify re-computes every hash and checks prev_hash linkage.
 // Returns list of IDs of broken records, empty slice if chain is intact.
 func (c *Chain) Verify() []string {

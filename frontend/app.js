@@ -363,6 +363,20 @@ async function loadChain() {
   }
 }
 
+async function handleTamperChain() {
+  if (!confirm('Испортить одну запись в цепочке? Это сломает целостность хэшей — только для демо.')) return;
+  try {
+    const data = await api.tamperChain();
+    showToast(`Запись #${data.tampered_index} изменена без пересчёта хэша`, 'error');
+    $('verify-result').innerHTML = `<div class="alert alert-error">
+      Запись #${data.tampered_index} повреждена — нажмите «Обновить», затем «Проверить»
+    </div>`;
+    await loadChain();
+  } catch (e) {
+    showToast(e.detail ?? 'Ошибка', 'error');
+  }
+}
+
 async function handleVerifyChain() {
   try {
     const data = await api.verifyChain();
@@ -435,6 +449,7 @@ function init() {
   // Chain buttons
   $('btn-refresh-chain').addEventListener('click', loadChain);
   $('btn-verify-chain').addEventListener('click', handleVerifyChain);
+  $('btn-tamper-chain').addEventListener('click', handleTamperChain);
   $('btn-refresh-services').addEventListener('click', loadServices);
   $('btn-refresh-orders').addEventListener('click', loadOrders);
   $('link-to-chain').addEventListener('click', (e) => { e.preventDefault(); switchTab('tab-chain'); });
