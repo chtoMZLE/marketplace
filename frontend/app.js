@@ -229,10 +229,10 @@ function renderOrders(orders) {
   setHtml('orders-list', `<div class="item-grid">${html}</div>`);
 
   const actionLabels = {
-    accept:   'Принять заказ?',
-    complete: 'Подтвердить выполнение? Средства перейдут исполнителю.',
-    cancel:   'Отменить заказ? Средства вернутся на баланс.',
-    dispute:  'Открыть спор?',
+    accept:   'Принять заказ в работу?',
+    complete: 'Подтвердить выполнение? Средства будут перечислены исполнителю.',
+    cancel:   'Отменить заказ? Средства вернутся на ваш баланс.',
+    dispute:  'Открыть спор? Средства останутся заблокированы до разрешения.',
   };
   document.querySelectorAll('[data-action]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -242,7 +242,7 @@ function renderOrders(orders) {
         currentUser = await api.getMe();
         renderNavUser();
         await loadOrders();
-        showToast('Готово', 'success');
+        showToast('Действие выполнено', 'success');
       } catch (e) {
         showToast(e.detail ?? 'Ошибка', 'error');
       }

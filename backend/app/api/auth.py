@@ -18,7 +18,7 @@ router = APIRouter(tags=["auth"])
 async def register(data: UserRegister, db: Annotated[AsyncSession, Depends(get_db)]):
     existing = await get_user_by_email(db, data.email)
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email уже зарегистрирован")
     user = await create_user(db, data.email, data.password, data.role)
     return user
 
@@ -27,7 +27,7 @@ async def register(data: UserRegister, db: Annotated[AsyncSession, Depends(get_d
 async def login(data: UserLogin, db: Annotated[AsyncSession, Depends(get_db)]):
     user = await get_user_by_email(db, data.email)
     if not user or not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный email или пароль")
     return TokenPair(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
@@ -39,10 +39,10 @@ async def refresh_token(data: RefreshRequest, db: Annotated[AsyncSession, Depend
     try:
         payload = decode_token(data.refresh_token)
         if payload.get("type") != "refresh":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный тип токена")
         user_id: str = payload.get("sub")
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный refresh-токен")
 
     return TokenPair(
         access_token=create_access_token(user_id),

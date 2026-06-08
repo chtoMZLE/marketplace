@@ -35,7 +35,7 @@ async def list_services(
 async def get_one(service_id: str, db: AsyncSession = Depends(get_db)):
     svc = await get_service(db, service_id)
     if not svc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")
     return svc
 
 
@@ -48,9 +48,9 @@ async def update(
 ):
     svc = await get_service(db, service_id)
     if not svc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")
     if svc.executor_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the owner")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь владельцем услуги")
     return await update_service(db, svc, data)
 
 
@@ -62,7 +62,7 @@ async def delete(
 ):
     svc = await get_service(db, service_id)
     if not svc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")
     if svc.executor_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the owner")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь владельцем услуги")
     await update_service(db, svc, ServiceUpdate(status=ServiceStatus.deleted))

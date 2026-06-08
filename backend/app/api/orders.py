@@ -11,6 +11,7 @@ from app.schemas.order import OrderCreate, OrderOut
 from app.services.order_service import create_order, get_order, get_orders_for_user, set_status
 from app.services.payment_client import InsufficientFundsError, PaymentServiceError, lock_escrow, refund_escrow, release_escrow
 from app.services.service_service import get_service
+from app.services.user_service import get_user_by_id, update_balance
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -23,7 +24,7 @@ async def create(
 ):
     svc = await get_service(db, data.service_id)
     if not svc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")
 
     import uuid
     temp_order_id = str(uuid.uuid4())
@@ -36,10 +37,11 @@ async def create(
             executor_id=svc.executor_id,
         )
     except InsufficientFundsError:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient balance")
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Недостаточно средств на балансе")
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Payment service unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
 
+    await update_balance(db, current_user, -float(svc.price))
     return await create_order(db, data.service_id, current_user.id, escrow_id)
 
 
@@ -52,9 +54,9 @@ async def accept(
     order = await _get_or_404(db, order_id)
     svc = await get_service(db, order.service_id)
     if svc.executor_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the executor of this service")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь исполнителем этой услуги")
     if order.status != OrderStatus.pending:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order is not in pending status")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Заказ не находится в статусе ожидания")
     return await set_status(db, order, OrderStatus.active)
 
 
@@ -66,14 +68,19 @@ async def complete(
 ):
     order = await _get_or_404(db, order_id)
     if order.customer_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the customer")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь заказчиком")
     if order.status != OrderStatus.active:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order is not in active status")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Подтвердить можно только заказ со статусом 'В работе'")
 
     try:
         await release_escrow(order.escrow_tx_id)
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Payment service unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
+
+    svc = await get_service(db, order.service_id)
+    executor = await get_user_by_id(db, svc.executor_id)
+    if executor:
+        await update_balance(db, executor, float(svc.price))
 
     return await set_status(db, order, OrderStatus.completed)
 
@@ -88,9 +95,9 @@ async def dispute(
     svc = await get_service(db, order.service_id)
     is_party = order.customer_id == current_user.id or svc.executor_id == current_user.id
     if not is_party:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this order")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь участником этого заказа")
     if order.status not in (OrderStatus.pending, OrderStatus.active):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot dispute in current status")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Спор нельзя открыть в текущем статусе")
     return await set_status(db, order, OrderStatus.disputed)
 
 
@@ -102,15 +109,17 @@ async def cancel(
 ):
     order = await _get_or_404(db, order_id)
     if order.customer_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the customer")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь заказчиком")
     if order.status != OrderStatus.pending:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pending orders can be cancelled")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Отменить можно только заказ в статусе ожидания")
 
     try:
         await refund_escrow(order.escrow_tx_id)
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Payment service unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
 
+    svc = await get_service(db, order.service_id)
+    await update_balance(db, current_user, float(svc.price))
     return await set_status(db, order, OrderStatus.cancelled)
 
 
@@ -134,5 +143,5 @@ async def get_one(
 async def _get_or_404(db: AsyncSession, order_id: str):
     order = await get_order(db, order_id)
     if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заказ не найден")
     return order

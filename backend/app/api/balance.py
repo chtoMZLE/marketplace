@@ -20,11 +20,11 @@ async def topup(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     if data.amount <= 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Amount must be positive")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Сумма должна быть положительной")
     try:
         await deposit_balance(str(current_user.id), float(data.amount))
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Payment service unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
     user = await update_balance(db, current_user, data.amount)
     return BalanceOut(balance=float(user.balance))
 

@@ -19,7 +19,7 @@ async def get_current_user(
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Не удалось проверить учётные данные",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -41,7 +41,7 @@ async def get_current_user(
 def require_role(*roles: UserRole):
     async def _check(current_user: Annotated[User, Depends(get_current_user)]) -> User:
         if current_user.role not in roles:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
         return current_user
 
     return _check
