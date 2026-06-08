@@ -20,11 +20,31 @@ type escrowIDRequest struct {
 	EscrowID string `json:"escrow_id"`
 }
 
+type depositRequest struct {
+	UserID string  `json:"user_id"`
+	Amount float64 `json:"amount"`
+}
+
 func RegisterEscrowRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /escrow/lock", lockHandler)
 	mux.HandleFunc("POST /escrow/release", releaseHandler)
 	mux.HandleFunc("POST /escrow/refund", refundHandler)
 	mux.HandleFunc("GET /escrow/{id}", getEscrowHandler)
+	mux.HandleFunc("POST /balance/deposit", depositHandler)
+}
+
+func depositHandler(w http.ResponseWriter, r *http.Request) {
+	var req depositRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.UserID == "" || req.Amount <= 0 {
+		httpError(w, "user_id and positive amount are required", http.StatusBadRequest)
+		return
+	}
+	escrow.Global.Deposit(req.UserID, req.Amount)
+	respond(w, map[string]float64{"balance": escrow.Global.Balance(req.UserID)}, http.StatusOK)
 }
 
 func lockHandler(w http.ResponseWriter, r *http.Request) {

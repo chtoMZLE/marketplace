@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.order import BalanceOut, BalanceTopup
+from app.services.payment_client import PaymentServiceError, deposit_balance
 from app.services.user_service import update_balance
 
 router = APIRouter(prefix="/balance", tags=["balance"])
@@ -20,6 +21,10 @@ async def topup(
 ):
     if data.amount <= 0:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Amount must be positive")
+    try:
+        await deposit_balance(str(current_user.id), float(data.amount))
+    except PaymentServiceError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Payment service unavailable")
     user = await update_balance(db, current_user, data.amount)
     return BalanceOut(balance=float(user.balance))
 

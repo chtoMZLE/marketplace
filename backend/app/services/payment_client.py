@@ -37,6 +37,16 @@ async def refund_escrow(escrow_id: str) -> None:
         raise PaymentServiceError(f"refund failed: {resp.text}")
 
 
+async def deposit_balance(user_id: str, amount: float) -> None:
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            f"{settings.payment_service_url}/balance/deposit",
+            json={"user_id": user_id, "amount": amount},
+        )
+    if resp.status_code >= 400:
+        raise PaymentServiceError(f"deposit failed: {resp.text}")
+
+
 class InsufficientFundsError(Exception):
     pass
 
