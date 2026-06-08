@@ -107,6 +107,22 @@ func (s *Store) Release(escrowID string) (*Account, error) {
 	return acc, nil
 }
 
+func (s *Store) Dispute(escrowID string) (*Account, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	acc, ok := s.accounts[escrowID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if acc.Status != StatusLocked {
+		return nil, ErrBadStatus
+	}
+	// Funds remain locked; record dispute event in the chain for auditability.
+	s.chain.Add(uuid.NewString(), acc.CustomerID, acc.ExecutorID, acc.Amount, "dispute")
+	return acc, nil
+}
+
 func (s *Store) Refund(escrowID string) (*Account, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -29,6 +29,7 @@ func RegisterEscrowRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /escrow/lock", lockHandler)
 	mux.HandleFunc("POST /escrow/release", releaseHandler)
 	mux.HandleFunc("POST /escrow/refund", refundHandler)
+	mux.HandleFunc("POST /escrow/dispute", disputeHandler)
 	mux.HandleFunc("GET /escrow/{id}", getEscrowHandler)
 	mux.HandleFunc("POST /balance/deposit", depositHandler)
 }
@@ -77,6 +78,20 @@ func releaseHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc, err := escrow.Global.Release(req.EscrowID)
+	if err != nil {
+		handleEscrowErr(w, err)
+		return
+	}
+	respond(w, acc, http.StatusOK)
+}
+
+func disputeHandler(w http.ResponseWriter, r *http.Request) {
+	var req escrowIDRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.EscrowID == "" {
+		httpError(w, "escrow_id is required", http.StatusBadRequest)
+		return
+	}
+	acc, err := escrow.Global.Dispute(req.EscrowID)
 	if err != nil {
 		handleEscrowErr(w, err)
 		return

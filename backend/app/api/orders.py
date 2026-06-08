@@ -9,7 +9,7 @@ from app.models.order import OrderStatus
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderOut
 from app.services.order_service import create_order, get_order, get_orders_for_user, set_status
-from app.services.payment_client import InsufficientFundsError, PaymentServiceError, lock_escrow, refund_escrow, release_escrow
+from app.services.payment_client import InsufficientFundsError, PaymentServiceError, dispute_escrow, lock_escrow, refund_escrow, release_escrow
 from app.services.service_service import get_service
 from app.services.user_service import get_user_by_id, update_balance
 
@@ -98,6 +98,12 @@ async def dispute(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь участником этого заказа")
     if order.status not in (OrderStatus.pending, OrderStatus.active):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Спор нельзя открыть в текущем статусе")
+
+    try:
+        await dispute_escrow(order.escrow_tx_id)
+    except PaymentServiceError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
+
     return await set_status(db, order, OrderStatus.disputed)
 
 
