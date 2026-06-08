@@ -60,6 +60,16 @@ services:
       postgres:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+      - payment
+
   # Builder-stage container used only for `go test` — has Go toolchain
   payment-test:
     build:

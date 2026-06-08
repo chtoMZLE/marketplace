@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketplace — Escrow Platform</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #f8fafc;
+      --card:    #ffffff;
+      --border:  #e2e8f0;
+      --blue:    #2563eb;
+      --green:   #16a34a;
+      --amber:   #d97706;
+      --red:     #dc2626;
+      --muted:   #64748b;
+      --text:    #0f172a;
+      --r:       8px;
+    }
+
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── Layout ── */
+    .container { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+
+    /* ── Navbar ── */
+    nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -.02em; }
+    .logo span { color: var(--blue); }
+
+    .nav-user { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .badge { padding: 2px 10px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+    .badge-customer { background: #dbeafe; color: #1e40af; }
+    .badge-executor { background: #dcfce7; color: #15803d; }
+    .balance-chip { background: var(--bg); border: 1px solid var(--border); padding: 4px 12px; border-radius: 999px; font-size: .82rem; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 16px; border: none; border-radius: var(--r);
+      cursor: pointer; font-size: .875rem; font-weight: 500;
+      transition: filter .15s; white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { filter: brightness(.9); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary { background: var(--blue);  color: #fff; }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-danger  { background: var(--red);   color: #fff; }
+    .btn-amber   { background: var(--amber); color: #fff; }
+    .btn-ghost   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-sm      { padding: 5px 12px; font-size: .8rem; }
+
+    /* ── Card ── */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 22px; }
+
+    /* ── Auth screen ── */
+    main { padding: 32px 0; }
+    .auth-hero { text-align: center; margin-bottom: 36px; }
+    .auth-hero h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.03em; }
+    .auth-hero p  { color: var(--muted); margin-top: 6px; }
+    .auth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 640px; margin: 0 auto; }
+    @media (max-width: 580px) { .auth-grid { grid-template-columns: 1fr; } }
+    .form-title { font-weight: 700; font-size: .95rem; margin-bottom: 16px; }
+    .demo-hint  { text-align: center; color: var(--muted); font-size: .78rem; margin-top: 16px; }
+    .demo-hint code { background: var(--bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+
+    /* ── Form elements ── */
+    .form-group { margin-bottom: 13px; }
+    label { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    input, select {
+      width: 100%; padding: 9px 11px;
+      border: 1px solid var(--border); border-radius: var(--r);
+      font-size: .9rem; background: var(--bg); color: var(--text); outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+
+    /* ── Alerts ── */
+    .alert { padding: 10px 14px; border-radius: var(--r); font-size: .85rem; margin-bottom: 14px; }
+    .alert-error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .alert-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 22px; }
+    .tab { padding: 10px 20px; cursor: pointer; font-size: .875rem; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s; }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Section header ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .section-title  { font-weight: 700; font-size: .95rem; }
+
+    /* ── Item cards ── */
+    .item-grid { display: grid; gap: 10px; }
+    .item-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r); gap: 12px;
+    }
+    .item-info { flex: 1; min-width: 0; }
+    .item-title { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-sub   { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+    .item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .price { font-weight: 700; color: var(--blue); }
+
+    /* ── Status badges ── */
+    .status { padding: 2px 10px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+    .status-pending   { background: #fef9c3; color: #854d0e; }
+    .status-active    { background: #dcfce7; color: #15803d; }
+    .status-completed { background: #dbeafe; color: #1e40af; }
+    .status-disputed  { background: #fce7f3; color: #9d174d; }
+    .status-cancelled { background: #f1f5f9; color: #475569; }
+
+    /* ── Blockchain table ── */
+    .chain-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .chain-table th { text-align: left; padding: 7px 10px; background: var(--bg); border-bottom: 1px solid var(--border); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    .chain-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .hash { font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); }
+
+    /* ── Executor service form ── */
+    .svc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+    .svc-form-grid .full { grid-column: 1 / -1; }
+
+    /* ── Misc ── */
+    .empty   { text-align: center; padding: 36px; color: var(--muted); font-size: .875rem; }
+    .hidden  { display: none !important; }
+    .mt-4    { margin-top: 16px; }
+    hr       { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <div class="logo">market<span>place</span></div>
+    <div id="nav-user" class="nav-user hidden"></div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+
+    <!-- ── Auth screen ────────────────────────────────────────── -->
+    <div id="screen-auth">
+      <div class="auth-hero">
+        <h1>Marketplace <span style="color:var(--blue)">Escrow</span></h1>
+        <p>Безопасные сделки с блокировкой средств и SHA-256 блокчейн-логом</p>
+      </div>
+
+      <div class="auth-grid">
+        <!-- Login -->
+        <div class="card">
+          <div class="form-title">Войти</div>
+          <div id="login-error" class="alert alert-error hidden"></div>
+          <form id="form-login">
+            <div class="form-group">
+              <label>Email</label>
+              <input name="email" type="email" value="customer@demo.com" required>
+            </div>
+            <div class="form-group">
+              <label>Пароль</label>
+              <input name="password" type="password" value="demo1234" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">Войти</button>
+          </form>
+        </div>
+
+        <!-- Register -->
+        <div class="card">
+          <div class="form-title">Регистрация</div>
+          <div id="reg-error"   class="alert alert-error   hidden"></div>
+          <div id="reg-success" class="alert alert-success hidden"></div>
+          <form id="form-register">
+            <div class="form-group">
+              <label>Email</label>
+              <input name="email" type="email" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+              <label>Пароль</label>
+              <input name="password" type="password" placeholder="Минимум 8 символов" required>
+            </div>
+            <div class="form-group">
+              <label>Роль</label>
+              <select name="role">
+                <option value="customer">Customer — заказываю услуги</option>
+                <option value="executor">Executor — исполняю заказы</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">Создать аккаунт</button>
+          </form>
+        </div>
+      </div>
+
+      <p class="demo-hint mt-4">
+        Демо: <code>customer@demo.com</code> и <code>executor@demo.com</code> — пароль <code>demo1234</code>
+      </p>
+    </div>
+
+    <!-- ── Dashboard ──────────────────────────────────────────── -->
+    <div id="screen-dashboard" class="hidden">
+
+      <div class="alert alert-info" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span>🔗 Каждая платёжная операция записывается в блокчейн с SHA-256 цепочкой хэшей</span>
+        <a id="link-to-chain" href="#" style="color:inherit;font-weight:700;white-space:nowrap">Посмотреть →</a>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <div class="tab active" id="tab-services">Услуги</div>
+        <div class="tab"        id="tab-orders">Мои заказы</div>
+        <div class="tab"        id="tab-chain">Блокчейн</div>
+      </div>
+
+      <!-- Services pane -->
+      <div id="pane-services" class="tab-pane active">
+        <!-- Create service (executor only) -->
+        <div id="executor-create-section" class="card hidden" style="margin-bottom:18px">
+          <div class="form-title">Новая услуга</div>
+          <div id="svc-error" class="alert alert-error hidden"></div>
+          <form id="form-service">
+            <div class="svc-form-grid">
+              <div class="form-group">
+                <label>Название</label>
+                <input name="title" placeholder="Разработка лендинга" required>
+              </div>
+              <div class="form-group">
+                <label>Цена (₽)</label>
+                <input name="price" type="number" min="1" step="0.01" placeholder="1000" required>
+              </div>
+              <div class="form-group full">
+                <label>Описание</label>
+                <input name="description" placeholder="Краткое описание услуги" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Создать услугу</button>
+          </form>
+        </div>
+
+        <div class="section-header">
+          <div class="section-title">Доступные услуги</div>
+          <button id="btn-refresh-services" class="btn btn-ghost btn-sm">↺ Обновить</button>
+        </div>
+        <div id="services-list"><div class="empty">Загрузка…</div></div>
+      </div>
+
+      <!-- Orders pane -->
+      <div id="pane-orders" class="tab-pane">
+        <div class="section-header">
+          <div class="section-title">Мои заказы</div>
+          <button id="btn-refresh-orders" class="btn btn-ghost btn-sm">↺ Обновить</button>
+        </div>
+        <div id="orders-list"><div class="empty">Загрузка…</div></div>
+      </div>
+
+      <!-- Blockchain pane -->
+      <div id="pane-chain" class="tab-pane">
+        <div class="card" style="margin-bottom:16px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+            <div>
+              <div class="section-title">Цепочка транзакций</div>
+              <div style="font-size:.78rem;color:var(--muted);margin-top:3px">
+                Изменение любой записи разрывает цепочку — выявляется при верификации
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="btn-refresh-chain" class="btn btn-ghost btn-sm">↺ Обновить</button>
+              <button id="btn-verify-chain"  class="btn btn-success btn-sm">✓ Проверить</button>
+            </div>
+          </div>
+          <div id="verify-result"></div>
+        </div>
+        <div id="chain-content">
+          <div class="empty">Нажмите «Обновить» для загрузки</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
