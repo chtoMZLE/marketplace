@@ -41,8 +41,20 @@ async def create(
     except PaymentServiceError:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
 
-    await update_balance(db, current_user, -float(svc.price))
-    return await create_order(db, data.service_id, current_user.id, escrow_id)
+    try:
+        await update_balance(db, current_user, -float(svc.price))
+        return await create_order(db, data.service_id, current_user.id, escrow_id)
+    except Exception:
+        # Compensate: return locked funds if DB write fails
+        try:
+            await refund_escrow(escrow_id)
+            await update_balance(db, current_user, float(svc.price))
+        except PaymentServiceError:
+            pass  # funds remain locked — requires manual admin intervention
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось сохранить заказ. Средства возвращены на баланс.",
+        )
 
 
 @router.post("/{order_id}/accept", response_model=OrderOut)

@@ -16,6 +16,7 @@ const (
 	StatusLocked   Status = "locked"
 	StatusReleased Status = "released"
 	StatusRefunded Status = "refunded"
+	StatusDisputed Status = "disputed"
 )
 
 type Account struct {
@@ -118,7 +119,7 @@ func (s *Store) Dispute(escrowID string) (*Account, error) {
 	if acc.Status != StatusLocked {
 		return nil, ErrBadStatus
 	}
-	// Funds remain locked; record dispute event in the chain for auditability.
+	acc.Status = StatusDisputed
 	s.chain.Add(uuid.NewString(), acc.CustomerID, acc.ExecutorID, acc.Amount, "dispute")
 	return acc, nil
 }

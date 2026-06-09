@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/marketplace/payment/internal/chain"
 	"github.com/marketplace/payment/internal/escrow"
@@ -10,7 +11,11 @@ import (
 func RegisterChainRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /chain", chainHandler)
 	mux.HandleFunc("GET /chain/verify", chainVerifyHandler)
-	mux.HandleFunc("POST /chain/tamper", chainTamperHandler)
+
+	// Demo-only: only registered when DEMO_MODE=true
+	if os.Getenv("DEMO_MODE") == "true" {
+		mux.HandleFunc("POST /chain/tamper", chainTamperHandler)
+	}
 }
 
 func chainHandler(w http.ResponseWriter, _ *http.Request) {
@@ -27,7 +32,6 @@ func chainTamperHandler(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, "цепочка пуста — сначала создайте заказ", http.StatusBadRequest)
 		return
 	}
-	// Tamper the middle transaction so the break propagates visibly through the rest.
 	idx := len(txs) / 2
 	id, ok := escrow.Global.Chain().Tamper(idx)
 	if !ok {

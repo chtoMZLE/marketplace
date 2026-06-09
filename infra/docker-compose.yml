@@ -56,6 +56,7 @@ services:
       - ../.env
     environment:
       PAYMENT_DB_DSN: ${PAYMENT_DB_DSN:-postgres://postgres:postgres@postgres:5432/marketplace?sslmode=disable}
+      DEMO_MODE: ${DEMO_MODE:-true}
     depends_on:
       postgres:
         condition: service_healthy
