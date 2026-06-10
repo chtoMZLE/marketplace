@@ -120,6 +120,8 @@ function logout() {
   api.setToken(null);
   currentUser = null;
   servicesCache = [];
+  ordersCache = [];
+  chainCache = [];
   hide('screen-dashboard');
   show('screen-auth');
   hide('nav-user');
@@ -131,6 +133,11 @@ async function renderDashboard() {
   show('screen-dashboard');
   renderNavUser();
   currentUser.role === 'executor' ? show('executor-create-section') : hide('executor-create-section');
+  // Reset all tabs to loading state so stale data from previous session isn't shown
+  setHtml('orders-list', '<div class="empty">Загрузка…</div>');
+  setHtml('chain-content', '<div class="empty">Загрузка…</div>');
+  $('verify-result').innerHTML = '';
+  switchTab('tab-services');
   await loadServices();
 }
 
@@ -382,7 +389,9 @@ async function handleVerifyChain() {
     const data = await api.verifyChain();
     $('verify-result').innerHTML = data.valid
       ? `<div class="alert alert-success">✓ Цепочка целостна — все хэши корректны</div>`
-      : `<div class="alert alert-error">✗ Повреждённые записи: ${(data.broken ?? []).join(', ')}</div>`;
+      : `<div class="alert alert-error">✗ Повреждённые записи: ${
+          (data.broken ?? []).map((r) => `#${r.index} (${r.id.slice(0, 8)}…)`).join(', ')
+        }</div>`;
   } catch (e) {
     $('verify-result').innerHTML = `<div class="alert alert-error">Ошибка верификации</div>`;
   }
