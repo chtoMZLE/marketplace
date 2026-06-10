@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.database import Base, get_db
+from app.core.rate_limit import reset as reset_rate_limit
 from app.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -29,6 +30,7 @@ async def clean_tables():
     async with engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(table.delete())
+    reset_rate_limit()
 
 
 @pytest_asyncio.fixture

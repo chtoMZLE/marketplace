@@ -76,17 +76,18 @@ async def test_order_dispute(client: AsyncClient):
     cust_token, _ = await _auth(client, "cust_disp@example.com", "customer")
     svc = await _create_service(client, exec_token)
 
-    with patch("app.api.orders.lock_escrow", new_callable=AsyncMock, return_value="escrow-002"):
+    with patch("app.api.orders.lock_escrow", new_callable=AsyncMock, return_value="escrow-002"), \
+         patch("app.api.orders.dispute_escrow", new_callable=AsyncMock):
         resp = await client.post(
             "/orders", json={"service_id": svc["id"]},
             headers={"Authorization": f"Bearer {cust_token}"}
         )
         order = resp.json()
 
-    resp = await client.post(
-        f"/orders/{order['id']}/dispute",
-        headers={"Authorization": f"Bearer {cust_token}"}
-    )
+        resp = await client.post(
+            f"/orders/{order['id']}/dispute",
+            headers={"Authorization": f"Bearer {cust_token}"}
+        )
     assert resp.status_code == 200
     assert resp.json()["status"] == "disputed"
 
