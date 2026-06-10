@@ -1,7 +1,7 @@
 # Архитектурная диаграмма (Mermaid C4)
 
 ```mermaid
-C4Context
+C4Container
     title Marketplace — Architecture Overview
 
     Person(client, "Client", "Browser / curl / Swagger UI")
@@ -12,12 +12,12 @@ C4Context
         Container(payment, "go-payment", "Go 1.23, net/http", "Escrow accounts, blockchain log (port 8001)")
     }
 
-    SystemDb(postgres, "PostgreSQL 16", "schema public (backend) + blockchain/escrow tables (payment)")
+    ContainerDb(postgres, "PostgreSQL 16", "PostgreSQL", "schema public (backend) + blockchain/escrow tables (payment)")
 
     Rel(client, frontend, "HTTP", "port 3000")
     Rel(frontend, backend, "HTTP REST", "port 8000")
     Rel(frontend, payment, "HTTP REST", "port 8001")
-    Rel(backend, payment, "HTTP REST", "port 8001 (lock/release/refund)")
+    Rel(backend, payment, "HTTP REST", "port 8001")
     Rel(backend, postgres, "asyncpg", "schema public")
-    Rel(payment, postgres, "pgx v5", "blockchain, escrow_accounts, escrow_balances")
+    Rel(payment, postgres, "pgx v5", "blockchain, escrow_accounts")
 ```
