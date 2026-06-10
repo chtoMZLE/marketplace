@@ -8,7 +8,7 @@ import (
 )
 
 func newStore(customerBalance float64) *escrow.Store {
-	s := escrow.NewStore()
+	s := escrow.NewStore(nil)
 	if customerBalance > 0 {
 		s.Deposit("customer1", customerBalance)
 	}

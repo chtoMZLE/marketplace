@@ -20,6 +20,14 @@ type Transaction struct {
 	Description string    `json:"description,omitempty"`
 }
 
+// Load restores pre-computed transactions from persistent storage (no hash recalculation).
+func (c *Chain) Load(txs []*Transaction) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.transactions = make([]*Transaction, len(txs))
+	copy(c.transactions, txs)
+}
+
 // ComputeHash calculates SHA-256 over the deterministic fields of the transaction.
 func ComputeHash(t *Transaction) string {
 	raw := fmt.Sprintf("%s%s%s%s%.8f%s",
@@ -51,7 +59,7 @@ func (c *Chain) Add(id, from, to string, amount float64, desc string) *Transacti
 
 	tx := &Transaction{
 		ID:          id,
-		Timestamp:   time.Now().UTC(),
+		Timestamp:   time.Now().UTC().Truncate(time.Microsecond),
 		From:        from,
 		To:          to,
 		Amount:      amount,
@@ -84,19 +92,22 @@ func (c *Chain) Tamper(index int) (string, bool) {
 	return c.transactions[index].ID, true
 }
 
+type BrokenRecord struct {
+	Index int    `json:"index"`
+	ID    string `json:"id"`
+}
+
 // Verify re-computes every hash and checks prev_hash linkage.
-// Returns list of IDs of broken records, empty slice if chain is intact.
-func (c *Chain) Verify() []string {
+// Returns list of broken records (1-based index + ID), empty slice if chain is intact.
+func (c *Chain) Verify() []BrokenRecord {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	var broken []string
+	var broken []BrokenRecord
 	prev := genesisHash
-	for _, tx := range c.transactions {
-		if tx.PrevHash != prev {
-			broken = append(broken, tx.ID)
-		} else if ComputeHash(tx) != tx.Hash {
-			broken = append(broken, tx.ID)
+	for i, tx := range c.transactions {
+		if tx.PrevHash != prev || ComputeHash(tx) != tx.Hash {
+			broken = append(broken, BrokenRecord{Index: i + 1, ID: tx.ID})
 		}
 		prev = tx.Hash
 	}

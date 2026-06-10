@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"math/rand"
 	"net/http"
 	"os"
 
@@ -32,8 +33,8 @@ func chainTamperHandler(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, "цепочка пуста — сначала создайте заказ", http.StatusBadRequest)
 		return
 	}
-	idx := len(txs) / 2
-	id, ok := escrow.Global.Chain().Tamper(idx)
+	idx := rand.Intn(len(txs))
+	id, ok := escrow.Global.TamperChain(idx)
 	if !ok {
 		httpError(w, "не удалось изменить запись", http.StatusInternalServerError)
 		return
