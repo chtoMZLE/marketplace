@@ -1,12 +1,12 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.user import UserRole
 
 
 class UserRegister(BaseModel):
-    email: EmailStr
-    password: str
-    role: UserRole
+    email: EmailStr = Field(..., description="Email-адрес пользователя", examples=["user@example.com"])
+    password: str = Field(..., description="Пароль (минимум 8 символов)", examples=["secret123"])
+    role: UserRole = Field(..., description="Роль: `customer` — покупатель, `executor` — исполнитель")
 
     @field_validator("password")
     @classmethod
@@ -17,24 +17,24 @@ class UserRegister(BaseModel):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., examples=["user@example.com"])
+    password: str = Field(..., examples=["secret123"])
 
 
 class TokenPair(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+    access_token: str = Field(..., description="JWT access-токен (срок действия 30 мин)")
+    refresh_token: str = Field(..., description="JWT refresh-токен (срок действия 7 дней)")
+    token_type: str = Field(default="bearer", description="Тип токена")
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str = Field(..., description="Действующий refresh-токен")
 
 
 class UserOut(BaseModel):
-    id: str
-    email: str
-    role: UserRole
-    balance: float
+    id: str = Field(..., description="UUID пользователя")
+    email: str = Field(..., description="Email пользователя")
+    role: UserRole = Field(..., description="Роль пользователя")
+    balance: float = Field(..., description="Текущий баланс в рублях", examples=[1000.0])
 
     model_config = {"from_attributes": True}

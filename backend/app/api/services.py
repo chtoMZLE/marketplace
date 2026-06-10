@@ -12,8 +12,19 @@ from app.services.service_service import create_service, get_service, get_servic
 
 router = APIRouter(prefix="/services", tags=["services"])
 
+_401 = {401: {"description": "Не авторизован"}}
+_403 = {403: {"description": "Недостаточно прав"}}
+_404 = {404: {"description": "Услуга не найдена"}}
 
-@router.post("", response_model=ServiceOut, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "",
+    response_model=ServiceOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать услугу",
+    description="Доступно только для исполнителей (`executor`). Услуга сразу становится активной.",
+    responses={**_401, **_403},
+)
 async def create(
     data: ServiceCreate,
     current_user: Annotated[User, Depends(require_role(UserRole.executor))],
@@ -22,16 +33,26 @@ async def create(
     return await create_service(db, data, current_user.id)
 
 
-@router.get("", response_model=list[ServiceOut])
+@router.get(
+    "",
+    response_model=list[ServiceOut],
+    summary="Список услуг",
+    description="Возвращает все активные услуги. Поддерживает фильтрацию по цене.",
+)
 async def list_services(
-    price_min: float | None = Query(None),
-    price_max: float | None = Query(None),
+    price_min: float | None = Query(None, description="Минимальная цена", ge=0),
+    price_max: float | None = Query(None, description="Максимальная цена", ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_services(db, price_min, price_max)
 
 
-@router.get("/{service_id}", response_model=ServiceOut)
+@router.get(
+    "/{service_id}",
+    response_model=ServiceOut,
+    summary="Получить услугу по ID",
+    responses=_404,
+)
 async def get_one(service_id: str, db: AsyncSession = Depends(get_db)):
     svc = await get_service(db, service_id)
     if not svc:
@@ -39,7 +60,13 @@ async def get_one(service_id: str, db: AsyncSession = Depends(get_db)):
     return svc
 
 
-@router.put("/{service_id}", response_model=ServiceOut)
+@router.put(
+    "/{service_id}",
+    response_model=ServiceOut,
+    summary="Обновить услугу",
+    description="Редактировать может только владелец услуги.",
+    responses={**_401, **_403, **_404},
+)
 async def update(
     service_id: str,
     data: ServiceUpdate,
@@ -54,7 +81,13 @@ async def update(
     return await update_service(db, svc, data)
 
 
-@router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{service_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Удалить услугу",
+    description="Мягкое удаление: статус услуги меняется на `deleted`. Только для владельца.",
+    responses={**_401, **_403, **_404},
+)
 async def delete(
     service_id: str,
     current_user: Annotated[User, Depends(get_current_user)],

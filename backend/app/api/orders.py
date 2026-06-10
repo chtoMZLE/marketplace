@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.order import OrderStatus
+from app.models.service import ServiceStatus
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderOut
 from app.services.order_service import create_order, get_order, get_orders_for_user, set_status
@@ -15,8 +17,30 @@ from app.services.user_service import get_user_by_id, update_balance
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
+_401 = {401: {"description": "Не авторизован"}}
+_403 = {403: {"description": "Недостаточно прав"}}
+_404 = {404: {"description": "Заказ не найден"}}
+_409 = {409: {"description": "Недопустимый переход статуса"}}
+_503 = {503: {"description": "Платёжный микросервис недоступен"}}
 
-@router.post("", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "",
+    response_model=OrderOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать заказ",
+    description=(
+        "Создаёт заказ и блокирует стоимость услуги в эскроу. "
+        "Требует наличия достаточного баланса у покупателя. "
+        "При сбое DB-записи средства автоматически возвращаются."
+    ),
+    responses={
+        **_401,
+        402: {"description": "Недостаточно средств на балансе"},
+        404: {"description": "Услуга не найдена"},
+        **_503,
+    },
+)
 async def create(
     data: OrderCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -25,8 +49,9 @@ async def create(
     svc = await get_service(db, data.service_id)
     if not svc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")
+    if svc.status != ServiceStatus.active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Услуга недоступна для заказа")
 
-    import uuid
     temp_order_id = str(uuid.uuid4())
 
     try:
@@ -45,19 +70,24 @@ async def create(
         await update_balance(db, current_user, -float(svc.price))
         return await create_order(db, data.service_id, current_user.id, escrow_id)
     except Exception:
-        # Compensate: return locked funds if DB write fails
         try:
             await refund_escrow(escrow_id)
             await update_balance(db, current_user, float(svc.price))
         except PaymentServiceError:
-            pass  # funds remain locked — requires manual admin intervention
+            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Не удалось сохранить заказ. Средства возвращены на баланс.",
         )
 
 
-@router.post("/{order_id}/accept", response_model=OrderOut)
+@router.post(
+    "/{order_id}/accept",
+    response_model=OrderOut,
+    summary="Принять заказ",
+    description="Исполнитель принимает заказ в работу: статус `pending` → `active`.",
+    responses={**_401, **_403, **_404, **_409},
+)
 async def accept(
     order_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -72,7 +102,16 @@ async def accept(
     return await set_status(db, order, OrderStatus.active)
 
 
-@router.post("/{order_id}/complete", response_model=OrderOut)
+@router.post(
+    "/{order_id}/complete",
+    response_model=OrderOut,
+    summary="Подтвердить выполнение",
+    description=(
+        "Покупатель подтверждает, что услуга оказана. "
+        "Средства из эскроу переводятся исполнителю: статус `active` → `completed`."
+    ),
+    responses={**_401, **_403, **_404, **_409, **_503},
+)
 async def complete(
     order_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -97,7 +136,16 @@ async def complete(
     return await set_status(db, order, OrderStatus.completed)
 
 
-@router.post("/{order_id}/dispute", response_model=OrderOut)
+@router.post(
+    "/{order_id}/dispute",
+    response_model=OrderOut,
+    summary="Открыть спор",
+    description=(
+        "Любая из сторон (покупатель или исполнитель) может открыть спор. "
+        "Средства остаются заблокированы в эскроу до разрешения."
+    ),
+    responses={**_401, **_403, **_404, **_409, **_503},
+)
 async def dispute(
     order_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -119,7 +167,16 @@ async def dispute(
     return await set_status(db, order, OrderStatus.disputed)
 
 
-@router.post("/{order_id}/cancel", response_model=OrderOut)
+@router.post(
+    "/{order_id}/cancel",
+    response_model=OrderOut,
+    summary="Отменить заказ",
+    description=(
+        "Покупатель отменяет заказ в статусе `pending`. "
+        "Средства возвращаются с эскроу на баланс покупателя."
+    ),
+    responses={**_401, **_403, **_404, **_409, **_503},
+)
 async def cancel(
     order_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -141,7 +198,13 @@ async def cancel(
     return await set_status(db, order, OrderStatus.cancelled)
 
 
-@router.get("", response_model=list[OrderOut])
+@router.get(
+    "",
+    response_model=list[OrderOut],
+    summary="История заказов",
+    description="Возвращает все заказы, где текущий пользователь является покупателем или исполнителем.",
+    responses=_401,
+)
 async def list_orders(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -149,7 +212,12 @@ async def list_orders(
     return await get_orders_for_user(db, current_user.id)
 
 
-@router.get("/{order_id}", response_model=OrderOut)
+@router.get(
+    "/{order_id}",
+    response_model=OrderOut,
+    summary="Получить заказ по ID",
+    responses={**_401, **_404},
+)
 async def get_one(
     order_id: str,
     current_user: Annotated[User, Depends(get_current_user)],

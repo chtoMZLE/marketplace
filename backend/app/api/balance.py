@@ -12,8 +12,21 @@ from app.services.user_service import update_balance
 
 router = APIRouter(prefix="/balance", tags=["balance"])
 
+_401 = {401: {"description": "Не авторизован"}}
+_503 = {503: {"description": "Платёжный микросервис недоступен"}}
 
-@router.post("/topup", response_model=BalanceOut)
+
+@router.post(
+    "/topup",
+    response_model=BalanceOut,
+    summary="Пополнение баланса",
+    description=(
+        "Зачисляет указанную сумму на баланс покупателя. "
+        "Сначала обновляет баланс в платёжном микросервисе (Go), затем в основной БД. "
+        "Если платёжный сервис недоступен — баланс не меняется."
+    ),
+    responses={**_401, **_503, 422: {"description": "Сумма должна быть положительной"}},
+)
 async def topup(
     data: BalanceTopup,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -29,6 +42,12 @@ async def topup(
     return BalanceOut(balance=float(user.balance))
 
 
-@router.get("", response_model=BalanceOut)
+@router.get(
+    "",
+    response_model=BalanceOut,
+    summary="Текущий баланс",
+    description="Возвращает актуальный баланс авторизованного пользователя.",
+    responses=_401,
+)
 async def get_balance(current_user: Annotated[User, Depends(get_current_user)]):
     return BalanceOut(balance=float(current_user.balance))

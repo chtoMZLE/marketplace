@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
@@ -24,7 +24,12 @@ async def create_user(db: AsyncSession, email: str, password: str, role: UserRol
 
 
 async def update_balance(db: AsyncSession, user: User, delta: float) -> User:
-    user.balance = float(user.balance) + delta
+    # Atomic increment: UPDATE users SET balance = balance + :delta WHERE id = :id
+    # Using raw SQL avoids SQLAlchemy's synchronize_session issues with column expressions.
+    await db.execute(
+        text("UPDATE users SET balance = balance + :delta WHERE id = :id"),
+        {"delta": delta, "id": user.id},
+    )
     await db.commit()
     await db.refresh(user)
     return user

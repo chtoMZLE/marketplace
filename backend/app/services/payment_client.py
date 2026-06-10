@@ -2,14 +2,23 @@ import httpx
 
 from app.core.config import settings
 
+# Set by lifespan in main.py; falls back to per-request client when None (tests).
+_client: httpx.AsyncClient | None = None
+
+
+async def _post(path: str, **kwargs) -> httpx.Response:
+    if _client is not None:
+        # shared client already has base_url set in lifespan
+        return await _client.post(path, **kwargs)
+    async with httpx.AsyncClient(base_url=settings.payment_service_url, timeout=10) as c:
+        return await c.post(path, **kwargs)
+
 
 async def lock_escrow(order_id: str, amount: float, customer_id: str, executor_id: str) -> str:
-    """Returns escrow_id on success; raises on failure."""
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            f"{settings.payment_service_url}/escrow/lock",
-            json={"order_id": order_id, "amount": amount, "customer_id": customer_id, "executor_id": executor_id},
-        )
+    resp = await _post(
+        "/escrow/lock",
+        json={"order_id": order_id, "amount": amount, "customer_id": customer_id, "executor_id": executor_id},
+    )
     if resp.status_code == 402:
         raise InsufficientFundsError()
     if resp.status_code >= 400:
@@ -18,41 +27,25 @@ async def lock_escrow(order_id: str, amount: float, customer_id: str, executor_i
 
 
 async def release_escrow(escrow_id: str) -> None:
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            f"{settings.payment_service_url}/escrow/release",
-            json={"escrow_id": escrow_id},
-        )
+    resp = await _post("/escrow/release", json={"escrow_id": escrow_id})
     if resp.status_code >= 400:
         raise PaymentServiceError(f"release failed: {resp.text}")
 
 
 async def refund_escrow(escrow_id: str) -> None:
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            f"{settings.payment_service_url}/escrow/refund",
-            json={"escrow_id": escrow_id},
-        )
+    resp = await _post("/escrow/refund", json={"escrow_id": escrow_id})
     if resp.status_code >= 400:
         raise PaymentServiceError(f"refund failed: {resp.text}")
 
 
 async def dispute_escrow(escrow_id: str) -> None:
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            f"{settings.payment_service_url}/escrow/dispute",
-            json={"escrow_id": escrow_id},
-        )
+    resp = await _post("/escrow/dispute", json={"escrow_id": escrow_id})
     if resp.status_code >= 400:
         raise PaymentServiceError(f"dispute failed: {resp.text}")
 
 
 async def deposit_balance(user_id: str, amount: float) -> None:
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            f"{settings.payment_service_url}/balance/deposit",
-            json={"user_id": user_id, "amount": amount},
-        )
+    resp = await _post("/balance/deposit", json={"user_id": user_id, "amount": amount})
     if resp.status_code >= 400:
         raise PaymentServiceError(f"deposit failed: {resp.text}")
 
