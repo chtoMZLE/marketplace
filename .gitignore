@@ -52,6 +52,9 @@ Thumbs.db
 # Alembic
 alembic/versions/*.pyc
 
+# SQLite test artifacts
+*.db
+
 # Analysis & workplan (local only)
 analyse.md
 workplan.md
