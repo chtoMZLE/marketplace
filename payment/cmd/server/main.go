@@ -56,7 +56,7 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	log.Printf("payment service listening on :%s", port)
+	log.Printf("payment service listening on :%s", port) // #nosec G706 — PORT is operator-set, not user input
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
