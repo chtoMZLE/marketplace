@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from jose import JWTError
+from jwt.exceptions import InvalidTokenError as JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
