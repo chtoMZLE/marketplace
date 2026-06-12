@@ -33,7 +33,7 @@ func chainTamperHandler(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, "цепочка пуста — сначала создайте заказ", http.StatusBadRequest)
 		return
 	}
-	idx := rand.Intn(len(txs))
+	idx := rand.Intn(len(txs)) // #nosec G404 — demo tamper, non-cryptographic randomness is intentional
 	id, ok := escrow.Global.TamperChain(idx)
 	if !ok {
 		httpError(w, "не удалось изменить запись", http.StatusInternalServerError)

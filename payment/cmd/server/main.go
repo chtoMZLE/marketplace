@@ -49,8 +49,15 @@ func main() {
 		port = "8001"
 	}
 
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      corsMiddleware(mux),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	log.Printf("payment service listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -70,5 +77,5 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
