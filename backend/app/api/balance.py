@@ -37,7 +37,9 @@ async def topup(
     try:
         await deposit_balance(str(current_user.id), float(data.amount))
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен") from None
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен"
+        ) from None
     user = await update_balance(db, current_user, data.amount)
     return BalanceOut(balance=float(user.balance))
 
