@@ -11,7 +11,14 @@ from app.models.service import ServiceStatus
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderOut
 from app.services.order_service import create_order, get_order, get_orders_for_user, set_status
-from app.services.payment_client import InsufficientFundsError, PaymentServiceError, dispute_escrow, lock_escrow, refund_escrow, release_escrow
+from app.services.payment_client import (
+    InsufficientFundsError,
+    PaymentServiceError,
+    dispute_escrow,
+    lock_escrow,
+    refund_escrow,
+    release_escrow,
+)
 from app.services.service_service import get_service
 from app.services.user_service import get_user_by_id, update_balance
 
@@ -62,9 +69,13 @@ async def create(
             executor_id=svc.executor_id,
         )
     except InsufficientFundsError:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Недостаточно средств на балансе")
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Недостаточно средств на балансе"
+        ) from None
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен"
+        ) from None
 
     try:
         await update_balance(db, current_user, -float(svc.price))
@@ -78,7 +89,7 @@ async def create(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Не удалось сохранить заказ. Средства возвращены на баланс.",
-        )
+        ) from None
 
 
 @router.post(
@@ -121,12 +132,17 @@ async def complete(
     if order.customer_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь заказчиком")
     if order.status != OrderStatus.active:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Подтвердить можно только заказ со статусом 'В работе'")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Подтвердить можно только заказ со статусом 'В работе'",
+        )
 
     try:
         await release_escrow(order.escrow_tx_id)
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен"
+        ) from None
 
     svc = await get_service(db, order.service_id)
     executor = await get_user_by_id(db, svc.executor_id)
@@ -162,7 +178,9 @@ async def dispute(
     try:
         await dispute_escrow(order.escrow_tx_id)
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен"
+        ) from None
 
     return await set_status(db, order, OrderStatus.disputed)
 
@@ -186,12 +204,17 @@ async def cancel(
     if order.customer_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Вы не являетесь заказчиком")
     if order.status != OrderStatus.pending:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Отменить можно только заказ в статусе ожидания")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Отменить можно только заказ в статусе ожидания",
+        )
 
     try:
         await refund_escrow(order.escrow_tx_id)
     except PaymentServiceError:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Платёжный сервис недоступен"
+        ) from None
 
     svc = await get_service(db, order.service_id)
     await update_balance(db, current_user, float(svc.price))

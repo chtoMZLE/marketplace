@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class OrderStatus(str, enum.Enum):
+class OrderStatus(enum.StrEnum):
     pending = "pending"
     active = "active"
     completed = "completed"

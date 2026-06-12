@@ -5,7 +5,9 @@ from app.models.service import ServiceStatus
 
 class ServiceCreate(BaseModel):
     title: str = Field(..., description="Название услуги", examples=["Разработка лендинга"])
-    description: str = Field(..., description="Подробное описание услуги", examples=["Создам лендинг под ключ за 3 дня"])
+    description: str = Field(
+        ..., description="Подробное описание услуги", examples=["Создам лендинг под ключ за 3 дня"]
+    )
     price: float = Field(..., gt=0, description="Стоимость в рублях", examples=[5000.0])
 
     @field_validator("price")

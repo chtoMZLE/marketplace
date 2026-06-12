@@ -40,9 +40,9 @@ async def create(
     description="Возвращает все активные услуги. Поддерживает фильтрацию по цене.",
 )
 async def list_services(
-    price_min: float | None = Query(None, description="Минимальная цена", ge=0),
-    price_max: float | None = Query(None, description="Максимальная цена", ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    price_min: Annotated[float | None, Query(description="Минимальная цена", ge=0)] = None,
+    price_max: Annotated[float | None, Query(description="Максимальная цена", ge=0)] = None,
 ):
     return await get_services(db, price_min, price_max)
 
@@ -53,7 +53,7 @@ async def list_services(
     summary="Получить услугу по ID",
     responses=_404,
 )
-async def get_one(service_id: str, db: AsyncSession = Depends(get_db)):
+async def get_one(service_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
     svc = await get_service(db, service_id)
     if not svc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")

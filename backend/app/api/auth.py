@@ -68,7 +68,7 @@ async def refresh_token(data: RefreshRequest, db: Annotated[AsyncSession, Depend
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный тип токена")
         user_id: str = payload.get("sub")
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный refresh-токен")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный refresh-токен") from None
 
     return TokenPair(
         access_token=create_access_token(user_id),

@@ -30,7 +30,7 @@ async def get_current_user(
         if user_id is None:
             raise credentials_exception
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     user = await get_user_by_id(db, user_id)
     if user is None:
